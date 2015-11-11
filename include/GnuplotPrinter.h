@@ -29,6 +29,7 @@ using std::conditional;
 using std::forward;
 using std::make_unique;
 using std::unique_ptr;
+using std::move;
 
 namespace GP { namespace util {
 
@@ -177,7 +178,7 @@ namespace GP {
 		index_t add_xSet(FwdIter begin, FwdIter end)
 		{
 			//xAxisData.push_back(  );
-			util::from_iter(begin, end);
+			util::from_iter( move(begin), move(end) );
 		}
 
 		int add_xSet(const vector<XCoordType> & x)
