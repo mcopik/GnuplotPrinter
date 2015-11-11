@@ -28,6 +28,7 @@ using std::string;
 using std::conditional;
 using std::forward;
 using std::make_unique;
+using std::unique_ptr;
 
 namespace GP { namespace util {
 
@@ -42,7 +43,7 @@ namespace GP { namespace util {
 
 	class GnuplotPrinterExc : public runtime_error {
 	public:
-		GnuplotPrinterExc(string & msg) : runtime_error(msg) {}
+		GnuplotPrinterExc(const string & msg) : runtime_error(msg) {}
 	};
 	
 	template<typename ValueType>
@@ -90,9 +91,10 @@ namespace GP { namespace util {
 	};
 
 	template<typename FwdIter>
-	decltype(auto) from_iter(FwdIter && x)
+	decltype(auto) from_iter(FwdIter && begin, FwdIter && end)
 	{
-		return make_unique<DataIterator>( forward<FwdIter>(x) );	
+		using ItType = typename std::remove_reference<FwdIter>::type;
+		return make_unique< DataIterator<ItType> >( forward<FwdIter>(begin), forward<FwdIter>(end));
 	}
 	
 } }
@@ -102,6 +104,7 @@ namespace GP {
 	template<typename YCoordType, typename XCoordType = int>
 	class GnuplotPrinter
 	{
+		using xdata_t = util::Iterator<XCoordType>;
 		std::string title, xLabel, yLabel, suffix;
 
 		static constexpr int AXES_COUNT = 2;
@@ -111,8 +114,10 @@ namespace GP {
 		std::vector< std::tuple<uint32_t, std::vector<XCoordType>> > xData;
 		std::vector< std::tuple<uint32_t, std::vector<YCoordType>, std::string> > yData;
 
-		vector< util::Iterator<XCoordType> > xAxisData;
+		vector< unique_ptr<xdata_t> > xAxisData;
 	public:
+
+		using index_t = uint32_t;
 
 		enum class Axis {
 			X = 0,
@@ -166,6 +171,13 @@ namespace GP {
 		{
 			axesLimits[util::get_underlying_type(axis)][0] = NAN;
 			axesLimits[util::get_underlying_type(axis)][1] = NAN;
+		}
+
+		template<typename FwdIter>
+		index_t add_xSet(FwdIter begin, FwdIter end)
+		{
+			//xAxisData.push_back(  );
+			util::from_iter(begin, end);
 		}
 
 		int add_xSet(const vector<XCoordType> & x)
