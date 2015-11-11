@@ -22,17 +22,6 @@
 #include <cmath>
 #include <ctime>
 
-using std::iterator_traits;
-using std::runtime_error;
-using std::vector;
-using std::string;
-using std::conditional;
-using std::forward;
-using std::make_unique;
-using std::unique_ptr;
-using std::move;
-using std::multimap;
-
 namespace GP { namespace util {
 
 	/**
@@ -44,9 +33,9 @@ namespace GP { namespace util {
 		return static_cast< typename std::underlying_type<T>::type >(enumer);
 	}
 
-	class GnuplotPrinterExc : public runtime_error {
+	class GnuplotPrinterExc : public std::runtime_error {
 	public:
-		GnuplotPrinterExc(const string & msg) : runtime_error(msg) {}
+		GnuplotPrinterExc(const std::string & msg) : std::runtime_error(msg) {}
 	};
 	
 	template<typename ValueType>
@@ -56,7 +45,7 @@ namespace GP { namespace util {
 		virtual ValueType operator*() = 0;
 	};
 
-	template<typename FwdIter, typename ValueType = typename iterator_traits<FwdIter>::value_type>
+	template<typename FwdIter, typename ValueType = typename std::iterator_traits<FwdIter>::value_type>
 	class DataIterator : public Iterator< ValueType >  {
 	protected:
 		FwdIter begin, end;
@@ -77,8 +66,8 @@ namespace GP { namespace util {
 	};
 
 	template<typename FwdIter, bool UseFirst, 
-		typename IteratorType = typename iterator_traits<FwdIter>::value_type,
-		typename ValueType = typename conditional<UseFirst, typename IteratorType::first_type, typename IteratorType::second_type>::value>
+		typename IteratorType = typename std::iterator_traits<FwdIter>::value_type,
+		typename ValueType = typename std::conditional<UseFirst, typename IteratorType::first_type, typename IteratorType::second_type>::value>
 	class PairIterator : public DataIterator<FwdIter, ValueType> {
 		using DataIterator<FwdIter, ValueType>::finished;
 		using DataIterator<FwdIter, ValueType>::begin;
@@ -96,7 +85,7 @@ namespace GP { namespace util {
 	decltype(auto) from_iter(FwdIter && begin, FwdIter && end)
 	{
 		using ItType = typename std::remove_reference<FwdIter>::type;
-		return make_unique< DataIterator<ItType> >( forward<FwdIter>(begin), forward<FwdIter>(end));
+		return make_unique< DataIterator<ItType> >( std::forward<FwdIter>(begin), std::forward<FwdIter>(end));
 	}
 	
 } }
@@ -107,11 +96,11 @@ namespace GP {
 	class GnuplotPrinter
 	{
 		using xdata_t = util::Iterator<XCoordType>;
-		using XDataContainer = vector< unique_ptr<xdata_t> >;
+		using XDataContainer = std::vector< unique_ptr<xdata_t> >;
 		using index_t = typename XDataContainer::size_type;
 
 		using ydata_t = util::Iterator<YCoordType>;
-		using YDataContainer = multimap< index_t, unique_ptr<ydata_t> >;
+		using YDataContainer = std::multimap< index_t, unique_ptr<ydata_t> >;
 
 		
 		std::string title, xLabel, yLabel, suffix;
@@ -191,6 +180,9 @@ namespace GP {
 		template<typename FwdIter>
 		void add_ySet(FwdIter begin, FwdIter end)
 		{
+			if(x_index >= xData.size()) {
+				throw std::invalid_argument("Wrong X data set indice!");
+			}
 		}
 
 		int add_xSet(const vector<XCoordType> & x)
