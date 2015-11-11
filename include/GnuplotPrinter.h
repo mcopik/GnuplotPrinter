@@ -13,11 +13,21 @@
 #include <vector>
 #include <memory>
 #include <array>
+#include <stdexcept>
+#include <string>
+#include <type_traits>
+#include <memory>
 
 #include <cmath>
 #include <ctime>
 
+using std::iterator_traits;
+using std::runtime_error;
 using std::vector;
+using std::string;
+using std::conditional;
+using std::forward;
+using std::make_unique;
 
 namespace GP { namespace util {
 
@@ -30,6 +40,61 @@ namespace GP { namespace util {
 		return static_cast< typename std::underlying_type<T>::type >(enumer);
 	}
 
+	class GnuplotPrinterExc : public runtime_error {
+	public:
+		GnuplotPrinterExc(string & msg) : runtime_error(msg) {}
+	};
+	
+	template<typename ValueType>
+	class Iterator {
+	public:
+		virtual void increment() = 0;
+		virtual ValueType operator*() = 0;
+	};
+
+	template<typename FwdIter, typename ValueType = typename iterator_traits<FwdIter>::value_type>
+	class DataIterator : public Iterator< ValueType >  {
+	protected:
+		FwdIter begin, end;
+		bool finished;
+	public:
+		using data_t = typename iterator_traits<FwdIter>::value_type;
+		DataIterator(FwdIter begin, FwdIter end) : begin(begin), end(end) {}
+		void increment() override
+		{
+			++begin;
+			finished = begin == end;
+		}
+		data_t operator*() override
+		{
+			if( !finished )
+				return *begin;
+			throw GnuplotPrinterExc("Dereferencing of an iterator pointing to end!");
+		}
+	};
+
+	template<typename FwdIter, bool UseFirst, 
+		typename iterator_t = typename iterator_traits<FwdIter>::value_type,
+		typename data_t = typename conditional<UseFirst, typename iterator_t::first_type, typename iterator_t::second_type>::value>
+	class PairIterator : public DataIterator<FwdIter, data_t> {
+		using DataIterator<FwdIter, data_t>::finished;
+		using DataIterator<FwdIter, data_t>::begin;
+	public:
+		PairIterator(FwdIter begin, FwdIter end) : DataIterator<FwdIter, data_t>(begin, end) {}
+		data_t operator*() override
+		{
+			if( !finished )
+				return UseFirst ? (*begin).first : (*begin).second;
+			throw GnuplotPrinterExc("Dereferencing of an iterator pointing to end!");
+		}
+	};
+
+	template<typename FwdIter>
+	decltype(auto) from_iter(FwdIter && x)
+	{
+		return make_unique<DataIterator>( forward<FwdIter>(x) );	
+	}
+	
 } }
 
 namespace GP {
@@ -45,6 +110,8 @@ namespace GP {
 
 		std::vector< std::tuple<uint32_t, std::vector<XCoordType>> > xData;
 		std::vector< std::tuple<uint32_t, std::vector<YCoordType>, std::string> > yData;
+
+		vector< util::Iterator<XCoordType> > xAxisData;
 	public:
 
 		enum class Axis {
