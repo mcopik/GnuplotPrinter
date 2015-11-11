@@ -80,13 +80,6 @@ namespace GP { namespace util {
 			throw GnuplotPrinterExc("Dereferencing of an iterator pointing to the end!");
 		}
 	};
-
-	template<typename FwdIter>
-	decltype(auto) from_iter(FwdIter && begin, FwdIter && end)
-	{
-		using ItType = typename std::remove_reference<FwdIter>::type;
-		return make_unique< DataIterator<ItType> >( std::forward<FwdIter>(begin), std::forward<FwdIter>(end));
-	}
 	
 } }
 
@@ -95,14 +88,10 @@ namespace GP {
 	template<typename YCoordType, typename XCoordType = int>
 	class GnuplotPrinter
 	{
-		using xdata_t = util::Iterator<XCoordType>;
-		using XDataContainer = std::vector< unique_ptr<xdata_t> >;
+		using XDataContainer = std::vector< std::unique_ptr< util::Iterator<XCoordType> > >;
 		using index_t = typename XDataContainer::size_type;
+		using YDataContainer = std::multimap< index_t, std::unique_ptr< util::Iterator<YCoordType> > >;
 
-		using ydata_t = util::Iterator<YCoordType>;
-		using YDataContainer = std::multimap< index_t, unique_ptr<ydata_t> >;
-
-		
 		std::string title, xLabel, yLabel, suffix;
 
 		static constexpr int AXES_COUNT = 2;
@@ -132,6 +121,24 @@ namespace GP {
 		}
 
 		virtual ~GnuplotPrinter() {}
+		
+		template<typename FwdIter,
+				 typename = std::enable_if< std::is_same<XCoordType, typename std::iterator_traits<FwdIter>::value_type >::value > >
+		index_t add_xSet(FwdIter begin, FwdIter end)
+		{
+			xAxisData.push_back( std::make_unique< util::DataIterator<FwdIter> >( move(begin), move(end)) );
+			return xAxisData.size() - 1;
+		}
+
+		template<typename FwdIter,
+				 typename = std::enable_if< std::is_same<YCoordType, typename std::iterator_traits<FwdIter>::value_type >::value > >
+		void add_ySet(index_t xIndex, FwdIter begin, FwdIter end)
+		{
+			if(xIndex >= xData.size()) {
+				throw std::invalid_argument("Wrong X data set indice!");
+			}
+			yAxisData.insert( xIndex, std::make_unique< util::DataIterator<FwdIter> >( move(begin), move(end)) );
+		}
 
 		void set_title(const std::string & title)
 		{
@@ -170,28 +177,14 @@ namespace GP {
 			axesLimits[util::get_underlying_type(axis)][1] = NAN;
 		}
 
-		template<typename FwdIter>
-		index_t add_xSet(FwdIter begin, FwdIter end)
-		{
-			xAxisData.push_back( util::from_iter( move(begin), move(end)) );
-			return xAxisData.size() - 1;
-		}
 
-		template<typename FwdIter>
-		void add_ySet(FwdIter begin, FwdIter end)
-		{
-			if(x_index >= xData.size()) {
-				throw std::invalid_argument("Wrong X data set indice!");
-			}
-		}
-
-		int add_xSet(const vector<XCoordType> & x)
+		int add_xSet(const std::vector<XCoordType> & x)
 		{
 			xData.push_back(std::make_tuple(x.size(),x));
 			return xData.size() - 1;
 		}
 
-		void add_ySet(uint32_t x_index,const vector<YCoordType> & y,const std::string & label)
+		void add_ySet(uint32_t x_index,const std::vector<YCoordType> & y,const std::string & label)
 		{
 			if(x_index >= xData.size()) {
 				throw std::invalid_argument("Wrong X data set indice!");
@@ -246,8 +239,8 @@ namespace GP {
 			//write data
 			fileOut.open(file + ".dat",std::fstream::out);
 
-			std::vector< const vector<XCoordType> * > xptrs;
-			std::vector< const vector<YCoordType> * > yptrs;
+			std::vector< const std::vector<XCoordType> * > xptrs;
+			std::vector< const std::vector<YCoordType> * > yptrs;
 			xptrs.reserve(xData.size());
 			yptrs.reserve(yData.size());
 			uint32_t max_size = 0;
