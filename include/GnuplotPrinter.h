@@ -17,6 +17,7 @@
 #include <string>
 #include <type_traits>
 #include <memory>
+#include <map>
 
 #include <cmath>
 #include <ctime>
@@ -30,6 +31,7 @@ using std::forward;
 using std::make_unique;
 using std::unique_ptr;
 using std::move;
+using std::multimap;
 
 namespace GP { namespace util {
 
@@ -60,14 +62,13 @@ namespace GP { namespace util {
 		FwdIter begin, end;
 		bool finished;
 	public:
-		using data_t = typename iterator_traits<FwdIter>::value_type;
 		DataIterator(FwdIter begin, FwdIter end) : begin(begin), end(end) {}
 		void increment() override
 		{
 			++begin;
 			finished = begin == end;
 		}
-		data_t operator*() override
+		ValueType operator*() override
 		{
 			if( !finished )
 				return *begin;
@@ -76,18 +77,18 @@ namespace GP { namespace util {
 	};
 
 	template<typename FwdIter, bool UseFirst, 
-		typename iterator_t = typename iterator_traits<FwdIter>::value_type,
-		typename data_t = typename conditional<UseFirst, typename iterator_t::first_type, typename iterator_t::second_type>::value>
-	class PairIterator : public DataIterator<FwdIter, data_t> {
-		using DataIterator<FwdIter, data_t>::finished;
-		using DataIterator<FwdIter, data_t>::begin;
+		typename IteratorType = typename iterator_traits<FwdIter>::value_type,
+		typename ValueType = typename conditional<UseFirst, typename IteratorType::first_type, typename IteratorType::second_type>::value>
+	class PairIterator : public DataIterator<FwdIter, ValueType> {
+		using DataIterator<FwdIter, ValueType>::finished;
+		using DataIterator<FwdIter, ValueType>::begin;
 	public:
-		PairIterator(FwdIter begin, FwdIter end) : DataIterator<FwdIter, data_t>(begin, end) {}
-		data_t operator*() override
+		PairIterator(FwdIter begin, FwdIter end) : DataIterator<FwdIter, ValueType>(begin, end) {}
+		ValueType operator*() override
 		{
 			if( !finished )
 				return UseFirst ? (*begin).first : (*begin).second;
-			throw GnuplotPrinterExc("Dereferencing of an iterator pointing to end!");
+			throw GnuplotPrinterExc("Dereferencing of an iterator pointing to the end!");
 		}
 	};
 
@@ -106,6 +107,13 @@ namespace GP {
 	class GnuplotPrinter
 	{
 		using xdata_t = util::Iterator<XCoordType>;
+		using XDataContainer = vector< unique_ptr<xdata_t> >;
+		using index_t = typename XDataContainer::size_type;
+
+		using ydata_t = util::Iterator<YCoordType>;
+		using YDataContainer = multimap< index_t, unique_ptr<ydata_t> >;
+
+		
 		std::string title, xLabel, yLabel, suffix;
 
 		static constexpr int AXES_COUNT = 2;
@@ -115,10 +123,9 @@ namespace GP {
 		std::vector< std::tuple<uint32_t, std::vector<XCoordType>> > xData;
 		std::vector< std::tuple<uint32_t, std::vector<YCoordType>, std::string> > yData;
 
-		vector< unique_ptr<xdata_t> > xAxisData;
+		XDataContainer xAxisData;
+		YDataContainer yAxisData;
 	public:
-
-		using index_t = uint32_t;
 
 		enum class Axis {
 			X = 0,
@@ -177,8 +184,13 @@ namespace GP {
 		template<typename FwdIter>
 		index_t add_xSet(FwdIter begin, FwdIter end)
 		{
-			//xAxisData.push_back(  );
-			util::from_iter( move(begin), move(end) );
+			xAxisData.push_back( util::from_iter( move(begin), move(end)) );
+			return xAxisData.size() - 1;
+		}
+
+		template<typename FwdIter>
+		void add_ySet(FwdIter begin, FwdIter end)
+		{
 		}
 
 		int add_xSet(const vector<XCoordType> & x)
