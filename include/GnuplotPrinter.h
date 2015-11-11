@@ -124,7 +124,7 @@ namespace GP {
 		
 		template<typename FwdIter,
 				 typename = std::enable_if< std::is_same<XCoordType, typename std::iterator_traits<FwdIter>::value_type >::value > >
-		index_t add_xSet(FwdIter begin, FwdIter end)
+		index_t addXSet(FwdIter begin, FwdIter end)
 		{
 			xAxisData.push_back( std::make_unique< util::DataIterator<FwdIter> >( move(begin), move(end)) );
 			return xAxisData.size() - 1;
@@ -132,7 +132,7 @@ namespace GP {
 
 		template<typename FwdIter,
 				 typename = std::enable_if< std::is_same<YCoordType, typename std::iterator_traits<FwdIter>::value_type >::value > >
-		void add_ySet(index_t xIndex, FwdIter begin, FwdIter end)
+		void addYSet(index_t xIndex, FwdIter begin, FwdIter end)
 		{
 			if(xIndex >= xData.size()) {
 				throw std::invalid_argument("Wrong X data set indice!");
@@ -140,38 +140,38 @@ namespace GP {
 			yAxisData.insert( xIndex, std::make_unique< util::DataIterator<FwdIter> >( move(begin), move(end)) );
 		}
 
-		void set_title(const std::string & title)
+		void setTitle(const std::string & title)
 		{
 			this->title = title;
 		}
 
-		void set_xLabel(const std::string & label)
+		void setXlabel(const std::string & label)
 		{
 			xLabel = label;
 		}
 
-		void set_yLabel(const std::string & label)
+		void setYLabel(const std::string & label)
 		{
 			yLabel = label;
 		}
 
-		void set_log_scale(Axis axis, int base = 10)
+		void setLogScale(Axis axis, int base = 10)
 		{
 			axesLog[util::get_underlying_type(axis)] = base;
 		}
 
-		void reset_log_scale(Axis axis)
+		void resetLogScale(Axis axis)
 		{
 			axesLog[util::get_underlying_type(axis)] = -1;
 		}
 
-		void set_limits(Axis axis, YCoordType yMin, YCoordType yMax)
+		void setLimits(Axis axis, YCoordType yMin, YCoordType yMax)
 		{
 			axesLimits[util::get_underlying_type(axis)][0] = yMin;
 			axesLimits[util::get_underlying_type(axis)][1] = yMax;
 		}
 
-		void reset_limits(Axis axis)
+		void resetLimits(Axis axis)
 		{
 			axesLimits[util::get_underlying_type(axis)][0] = NAN;
 			axesLimits[util::get_underlying_type(axis)][1] = NAN;
