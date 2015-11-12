@@ -240,11 +240,25 @@ namespace GP {
 				}
 			}
 			fileOut << "plot ";
+			/*
 			for(size_t i = 0;i < yData.size();++i) {
 				auto & x = yData[i];
 				fileOut << "\"" << file << ".dat\"" << " using " << std::get<0>(x)+1 << ":" <<
 						i+xData.size()+1 << " title \"" << std::get<2>(x) << "\" with line";
 				if(i != yData.size() - 1) {
+					fileOut << " , ";
+				} else {
+					fileOut << std::endl;
+				}
+			}*/
+
+			int y_idx = 0, y_offset = xAxisData.size() + 1;
+			for(auto & y_set : yAxisData) {
+
+				fileOut << "\"" << file << ".dat\"" << " using " << y_set.first << ":" <<
+						y_idx + y_offset << " title \"" << dataLabels[y_idx] << "\" with line";
+
+				if(y_idx++ != yAxisData.size() - 1) {
 					fileOut << " , ";
 				} else {
 					fileOut << std::endl;
@@ -255,7 +269,7 @@ namespace GP {
 			fileOut.close();
 
 			//write data
-			fileOut.open(file + ".dat",std::fstream::out);
+			fileOut.open(file + ".dat", std::fstream::out);
 
 			bool * finished = new bool[yAxisData.size()]();
 			int unfinished = xAxisData.size() + yAxisData.size();
