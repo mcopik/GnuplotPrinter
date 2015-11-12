@@ -18,6 +18,7 @@
 #include <type_traits>
 #include <memory>
 #include <map>
+#include <iostream>
 
 #include <cmath>
 #include <ctime>
@@ -43,25 +44,33 @@ namespace GP { namespace util {
 	public:
 		virtual void increment() = 0;
 		virtual ValueType operator*() = 0;
+		virtual bool finished() = 0;
 	};
 
 	template<typename FwdIter, typename ValueType = typename std::iterator_traits<FwdIter>::value_type>
 	class DataIterator : public Iterator< ValueType >  {
 	protected:
 		FwdIter begin, end;
-		bool finished;
+		bool m_finished;
 	public:
-		DataIterator(FwdIter begin, FwdIter end) : begin(begin), end(end) {}
+		DataIterator(FwdIter begin, FwdIter end) : begin(begin), end(end), m_finished(begin == end) {}
+
 		void increment() override
 		{
 			++begin;
-			finished = begin == end;
+			m_finished = begin == end;
 		}
+
 		ValueType operator*() override
 		{
-			if( !finished )
+			if( !m_finished )
 				return *begin;
-			throw GnuplotPrinterExc("Dereferencing of an iterator pointing to end!");
+			throw GnuplotPrinterExc("Dereferencing of an iterator pointing to the end!");
+		}
+
+		bool finished() override
+		{
+			return this->m_finished;
 		}
 	};
 
@@ -69,13 +78,13 @@ namespace GP { namespace util {
 		typename IteratorType = typename std::iterator_traits<FwdIter>::value_type,
 		typename ValueType = typename std::conditional<UseFirst, typename IteratorType::first_type, typename IteratorType::second_type>::value>
 	class PairIterator : public DataIterator<FwdIter, ValueType> {
-		using DataIterator<FwdIter, ValueType>::finished;
+		using DataIterator<FwdIter, ValueType>::m_finished;
 		using DataIterator<FwdIter, ValueType>::begin;
 	public:
 		PairIterator(FwdIter begin, FwdIter end) : DataIterator<FwdIter, ValueType>(begin, end) {}
 		ValueType operator*() override
 		{
-			if( !finished )
+			if( !m_finished )
 				return UseFirst ? (*begin).first : (*begin).second;
 			throw GnuplotPrinterExc("Dereferencing of an iterator pointing to the end!");
 		}
@@ -100,7 +109,7 @@ namespace GP {
 
 		std::vector< std::tuple<uint32_t, std::vector<XCoordType>> > xData;
 		std::vector< std::tuple<uint32_t, std::vector<YCoordType>, std::string> > yData;
-
+		std::vector< std::string > dataLabels;
 		XDataContainer xAxisData;
 		YDataContainer yAxisData;
 	public:
@@ -126,18 +135,28 @@ namespace GP {
 				 typename = std::enable_if< std::is_same<XCoordType, typename std::iterator_traits<FwdIter>::value_type >::value > >
 		index_t addXSet(FwdIter begin, FwdIter end)
 		{
+			if(begin == end) {
+				throw util::GnuplotPrinterExc("Add empty data set - begin and end iterators are equal!");
+			}
+
 			xAxisData.push_back( std::make_unique< util::DataIterator<FwdIter> >( move(begin), move(end)) );
-			return xAxisData.size() - 1;
+			return xAxisData.size();
 		}
 
 		template<typename FwdIter,
 				 typename = std::enable_if< std::is_same<YCoordType, typename std::iterator_traits<FwdIter>::value_type >::value > >
-		void addYSet(index_t xIndex, FwdIter begin, FwdIter end)
+		void addYSet(index_t xIndex, FwdIter begin, FwdIter end, const std::string & label)
 		{
-			if(xIndex >= xData.size()) {
-				throw std::invalid_argument("Wrong X data set indice!");
+			if(begin == end) {
+				throw util::GnuplotPrinterExc("Add empty data set - begin and end iterators are equal!");
 			}
-			yAxisData.insert( xIndex, std::make_unique< util::DataIterator<FwdIter> >( move(begin), move(end)) );
+
+			if(xIndex > xAxisData.size()) {
+				throw util::GnuplotPrinterExc("Wrong X data set indice!");
+			}
+
+			yAxisData.insert( std::make_pair(xIndex, std::make_unique< util::DataIterator<FwdIter> >( move(begin), move(end))) );
+			dataLabels.push_back( label );
 		}
 
 		void setTitle(const std::string & title)
@@ -194,7 +213,6 @@ namespace GP {
 
 		void save(const std::string & file, bool toPng = false)
 		{
-
 			std::fstream fileOut(file, std::fstream::out);
 			//scale axes
 			fileOut << "set autoscale" << std::endl;
@@ -239,7 +257,51 @@ namespace GP {
 			//write data
 			fileOut.open(file + ".dat",std::fstream::out);
 
-			std::vector< const std::vector<XCoordType> * > xptrs;
+			bool * finished = new bool[yAxisData.size()]();
+			int unfinished = xAxisData.size() + yAxisData.size();
+
+			while( unfinished > 0 ) {
+
+				for(auto & x : xAxisData) {
+					if( !(*x).finished() ) {
+						fileOut << *(*x) << "\t";
+						(*x).increment();
+						if( (*x).finished() ) {
+							--unfinished;
+						}
+					}
+				}
+
+				bool * finishedPtr = finished;
+				for(auto & y : yAxisData) {
+					index_t x_idx = y.first;
+					// we don't want to print additional data if our corresponding set is not used
+					// index - 1, because indices started from 1 (0 is reserved)
+					// print last item if x set has *recently* finished
+					if( *finishedPtr && (*xAxisData.at(x_idx - 1)).finished() ) {
+						continue;
+					} else if( (*xAxisData.at(x_idx - 1)).finished() ) {
+						// remember to skip next time
+						*finishedPtr = true;
+					}
+
+					auto & y_set = y.second;
+					if( !(*y_set).finished() ) {
+						fileOut << *(*y_set) << "\t";
+						(*y_set).increment();
+						if( (*y_set).finished() ) {
+							--unfinished;
+						}
+					}
+
+					
+				}
+
+				fileOut << std::endl;
+			}
+			delete[] finished;
+
+/*			std::vector< const std::vector<XCoordType> * > xptrs;
 			std::vector< const std::vector<YCoordType> * > yptrs;
 			xptrs.reserve(xData.size());
 			yptrs.reserve(yData.size());
@@ -274,7 +336,8 @@ namespace GP {
 					}
 				}
 				fileOut << std::endl;
-			}
+			}*/
+
 			fileOut.close();
 
 		}
@@ -312,4 +375,4 @@ namespace GP {
 
 }
 
-#endif /* _GNUPLOTPRINTER_H_ */
+#endif
