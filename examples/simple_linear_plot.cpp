@@ -14,8 +14,12 @@ int main(int argc, char ** argv)
 		x_vals[i] = y_vals[i] = i;
 	}
 
-	int idx = printer.add_xSet(x_vals);
-	printer.add_ySet(idx, y_vals, "Meaningless data");
+//	int idx = printer.add_xSet(x_vals);
+//	printer.add_ySet(idx, y_vals, "Meaningless data");
+	//printer.save(true);
+
+	auto idx = printer.addXSet(x_vals.begin(), x_vals.end());
+	printer.addYSet(idx, y_vals.begin(), y_vals.end(), "Meaningless data");
 	printer.save(true);
 
 	return 0;

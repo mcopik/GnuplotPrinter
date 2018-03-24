@@ -240,17 +240,6 @@ namespace GP {
 				}
 			}
 			fileOut << "plot ";
-			/*
-			for(size_t i = 0;i < yData.size();++i) {
-				auto & x = yData[i];
-				fileOut << "\"" << file << ".dat\"" << " using " << std::get<0>(x)+1 << ":" <<
-						i+xData.size()+1 << " title \"" << std::get<2>(x) << "\" with line";
-				if(i != yData.size() - 1) {
-					fileOut << " , ";
-				} else {
-					fileOut << std::endl;
-				}
-			}*/
 
 			int y_idx = 0, y_offset = xAxisData.size() + 1;
 			for(auto & y_set : yAxisData) {
@@ -315,45 +304,7 @@ namespace GP {
 			}
 			delete[] finished;
 
-/*			std::vector< const std::vector<XCoordType> * > xptrs;
-			std::vector< const std::vector<YCoordType> * > yptrs;
-			xptrs.reserve(xData.size());
-			yptrs.reserve(yData.size());
-			uint32_t max_size = 0;
-			for(auto & x : xData) {
-				xptrs.push_back( &std::get<1>(x) );
-				max_size = std::max(max_size,std::get<0>(x));
-			}
-			for(auto & x : yData) {
-				yptrs.push_back( &std::get<1>(x) );
-			}
-			for(uint32_t i = 0;i < max_size;++i) {
-
-				auto x_it = xptrs.begin(), y_it = yptrs.begin();
-
-				for(auto & x : xData) {
-					if(std::get<0>(x) > i) {
-						// get pointer and increment iterator; then get double value and increment pointer
-						fileOut << (*x_it++)->at(i) << "\t";
-					} else {
-						++x_it;
-						fileOut << ".\t";
-					}
-				}
-
-				for(auto & y : yData) {
-					if(std::get<0>(xData[std::get<0>(y)]) > i && std::get<1>(y).size() > i) {
-						fileOut << (*y_it++)->at(i) << "\t";
-					} else {
-						++y_it;
-						fileOut << ".\t";
-					}
-				}
-				fileOut << std::endl;
-			}*/
-
 			fileOut.close();
-
 		}
 
 		void save(bool toPng = false)
